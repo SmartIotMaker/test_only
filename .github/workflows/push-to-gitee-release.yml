@@ -1,4 +1,4 @@
-name: 私有→Gitee Release（国内高速）
+name: dl_push_gitee_release
 
 on:
   workflow_dispatch:   # 手动触发，安全可控
@@ -35,14 +35,14 @@ jobs:
                   \"body\": \"sync from GitHub Actions\",
                   \"prerelease\": false
                 }" \
-            -u "${{ secrets.GITEE_TOKEN }}")
+            -u "${{ secrets.GITEE_TOKEN }}")          # ← 这里用令牌，别用星号
           upload_url=$(echo "$resp" | jq -r '.upload_url' | sed 's/{.*}//')
 
           # 2. 上传附件
           curl -s -X POST "${upload_url}?name=${{ env.FILE_NAME }}" \
             -H "Content-Type: application/octet-stream" \
             -u "${{ secrets.GITEE_TOKEN }}" \
-            --data-binary @${{ env.FILE_NAME }}
+            --data-binary @"${{ env.FILE_NAME }}"
 
       - name: 打印国内直链
         run: |
