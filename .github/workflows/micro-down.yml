@@ -1,24 +1,29 @@
-name: micro-down
+name: 下载海外文件并发布到 Release
 
 on:
-  workflow_dispatch:   # 只允许手动触发，防止误跑
+  workflow_dispatch:   # 手动触发，安全可控
+
+env:
+  FILE_NAME: Fedora-IoT-42.raw.xz
+  DOWN_URL: https://dl.fedoraproject.org/pub/alt/iot/42/IoT/aarch64/images/Fedora-IoT-raw-42-20250724.1.aarch64.raw.xz
 
 jobs:
-  download:
+  dl-and-release:
     runs-on: ubuntu-latest
     steps:
       - name: 安装 aria2
         run: sudo apt-get update && sudo apt-get install -y aria2
 
       - name: 下载文件
-        run: |
-          aria2c -x16 -s16 \
-            https://mirror.fcix.net/fedora-alt/iot/42/IoT/aarch64/images/Fedora-IoT-raw-42-20250724.1.aarch64.raw.xz \
-            -o Fedora-IoT-raw-42-20250724.1.aarch64.raw.xz
+        run: aria2c -x16 -s16 "${DOWN_URL}" -o "${FILE_NAME}"
 
-      - name: 上传 Artifact
-        uses: actions/upload-artifact@v4
+      - name: 发布到 GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: Fedora-IoT-raw-42-20250724.1.aarch64.raw.xz
-          path: Fedora-IoT-raw-42-20250724.1.aarch64.raw.xz
-          retention-days: 1   # 1 天后自动删除，节省 GitHub 空间
+          tag_name: v${{ github.run_number }}      # 每次唯一
+          name: ${{ env.FILE_NAME }}
+          body: "海外直传，国内可通过 Gitee 镜像加速下载"
+          files: ${{ env.FILE_NAME }}
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}   # 系统自带，无需额外配置
