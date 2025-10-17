@@ -1,0 +1,50 @@
+name: 私有→Gitee Release（国内高速）
+
+on:
+  workflow_dispatch:   # 手动触发，安全可控
+
+env:
+  FILE_NAME: Fedora-IoT-42.raw.xz
+  GITEE_REPO: pumori/down-cache   # 你的 Gitee 仓库
+
+jobs:
+  download-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 安装 aria2 + jq
+        run: sudo apt-get update && sudo apt-get install -y aria2 jq
+
+      - name: 下载海外文件
+        run: |
+          aria2c -x16 -s16 \
+            https://dl.fedoraproject.org/pub/alt/iot/42/IoT/aarch64/images/Fedora-IoT-raw-42-20250724.1.aarch64.raw.xz \
+            -o ${{ env.FILE_NAME }}
+
+      - name: 创建 Gitee Release 并上传文件
+        run: |
+          SIZE=$(stat -c%s "${{ env.FILE_NAME }}")
+          TAG="v$(date +%Y%m%d%H%M%S)"
+          API="https://gitee.com/api/v5/repos/${{ env.GITEE_REPO }}/releases"
+
+          # 1. 创建 release
+          resp=$(curl -s -X POST "$API" \
+            -H "Content-Type: application/json" \
+            -d "{
+                  \"tag_name\": \"$TAG\",
+                  \"name\": \"$TAG\",
+                  \"body\": \"sync from GitHub Actions\",
+                  \"prerelease\": false
+                }" \
+            -u "${{ secrets.GITEE_TOKEN }}")
+          upload_url=$(echo "$resp" | jq -r '.upload_url' | sed 's/{.*}//')
+
+          # 2. 上传附件
+          curl -s -X POST "${upload_url}?name=${{ env.FILE_NAME }}" \
+            -H "Content-Type: application/octet-stream" \
+            -u "${{ secrets.GITEE_TOKEN }}" \
+            --data-binary @${{ env.FILE_NAME }}
+
+      - name: 打印国内直链
+        run: |
+          echo "国内高速直链（永久）："
+          echo "https://gitee.com/${{ env.GITEE_REPO }}/releases/download/${TAG}/${{ env.FILE_NAME }}"
