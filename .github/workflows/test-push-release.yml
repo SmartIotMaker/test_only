@@ -16,7 +16,7 @@ jobs:
 
       - name: ===== 调试推送 =====
         env:
-          TOKEN: ${{ secrets.GITEE_TOKEN }}
+          TOKEN: ${{ secrets.GITEE_TOKEN1 }}
         run: |
           set -ex          # -x 会把每一步变量展开打印
           FILE="${FILE_NAME}"
