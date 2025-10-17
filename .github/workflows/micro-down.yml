@@ -27,10 +27,3 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}   # 系统自带，无需额外配置
-
-      - name: 推送 Artifact（GitHub 自带 CDN）
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.FILE_NAME }}
-          path: ${{ env.FILE_NAME }}
-          retention-days: 1   # 1 天后自动删，不占配额
