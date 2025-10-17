@@ -1,11 +1,11 @@
 name: dl_push_gitee_release
 
 on:
-  workflow_dispatch:   # 手动触发，安全可控
+  workflow_dispatch:
 
 env:
   FILE_NAME: Fedora-IoT-42.raw.xz
-  GITEE_REPO: pumori/down-cache   # 你的 Gitee 仓库
+  GITEE_REPO: pumori/down-cache
 
 jobs:
   download-and-push:
@@ -18,7 +18,7 @@ jobs:
         run: |
           aria2c -x16 -s16 \
             https://dl.fedoraproject.org/pub/alt/iot/42/IoT/aarch64/images/Fedora-IoT-raw-42-20250724.1.aarch64.raw.xz \
-            -o ${{ env.FILE_NAME }}
+            -o "${FILE_NAME}"
 
       - name: 创建 Gitee Release 并上传文件
         env:
@@ -42,9 +42,4 @@ jobs:
                -u "${TOKEN}:" \
                --data-binary @"${FILE_NAME}"
 
-          echo "国内直链： https://gitee.com/${GITEE_REPO}/releases/download/${TAG}/${FILE_NAME}"
-
-      - name: 打印国内直链
-        run: |
-          echo "国内高速直链（永久）："
-          echo "https://gitee.com/${{ env.GITEE_REPO }}/releases/download/${TAG}/${{ env.FILE_NAME }}"
+          echo "国内直链：https://gitee.com/${GITEE_REPO}/releases/download/${TAG}/${FILE_NAME}"
