@@ -1,4 +1,4 @@
-name: Test-Push-Release
+name: Debug-Push-Release
 
 on:
   workflow_dispatch:
@@ -14,26 +14,38 @@ jobs:
       - name: 生成测试文件
         run: echo "hello gitee $(date)" > test.txt
 
-      - name: 推到 Gitee Release
+      - name: ===== 调试推送 =====
         env:
           TOKEN: ${{ secrets.GITEE_TOKEN }}
         run: |
-          set -e
+          set -ex          # -x 会把每一步变量展开打印
+          FILE="${FILE_NAME}"
           TAG="v$(date +%s)"
           API="https://gitee.com/api/v5/repos/${GITEE_REPO}/releases"
 
-          # 1. 创建 release
-          resp=$(curl -s -X POST "$API" \
-                 -H "Content-Type: application/json" \
-                 -d "{\"tag_name\":\"$TAG\",\"name\":\"$TAG\",\"body\":\"test\",\"prerelease\":false}" \
-                 -u "${TOKEN}:")
-          upload_url=$(echo "$resp" | jq -r '.upload_url' | sed 's/{.*}//')
+          echo "==== 变量一览 ===="
+          echo "FILE=${FILE}"
+          echo "TAG=${TAG}"
+          echo "API=${API}"
+          echo "TOKEN=${TOKEN:0:4}****"   # 只打印前 4 位确认非空
 
-          # 2. 上传附件
-          curl -s -X POST "${upload_url}?name=${FILE_NAME}" \
+          echo "==== 1. 创建 release ===="
+          resp=$(curl -v -X POST "$API" \
+                 -H "Content-Type: application/json" \
+                 -d "{\"tag_name\":\"$TAG\",\"name\":\"$TAG\",\"body\":\"debug\",\"prerelease\":false}" \
+                 -u "${TOKEN}:" 2>&1)      # -v 详细输出，2>&1 捕获 stderr
+          echo "---- curl 返回 ----"
+          echo "$resp"
+          upload_url=$(echo "$resp" | jq -r '.upload_url // empty' | sed 's/{.*}//')
+          echo "upload_url=[${upload_url}]"
+
+          [[ -z "$upload_url" ]] && { echo "❌ 未获取到 upload_url，中止"; exit 1; }
+
+          echo "==== 2. 上传附件 ===="
+          curl -v -X POST "${upload_url}?name=${FILE}" \
                -H "Content-Type: application/octet-stream" \
                -u "${TOKEN}:" \
-               --data-binary @"${FILE_NAME}"
+               --data-binary @"${FILE}" 2>&1
 
           echo "✅ 测试成功！直链："
-          echo "https://gitee.com/${GITEE_REPO}/releases/download/${TAG}/${FILE_NAME}"
+          echo "https://gitee.com/${GITEE_REPO}/releases/download/${TAG}/${FILE}"
