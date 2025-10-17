@@ -1,0 +1,39 @@
+name: Test-Push-Release
+
+on:
+  workflow_dispatch:
+
+env:
+  GITEE_REPO: pumori/down-cache
+  FILE_NAME: test.txt
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 生成测试文件
+        run: echo "hello gitee $(date)" > test.txt
+
+      - name: 推到 Gitee Release
+        env:
+          TOKEN: ${{ secrets.GITEE_TOKEN }}
+        run: |
+          set -e
+          TAG="v$(date +%s)"
+          API="https://gitee.com/api/v5/repos/${GITEE_REPO}/releases"
+
+          # 1. 创建 release
+          resp=$(curl -s -X POST "$API" \
+                 -H "Content-Type: application/json" \
+                 -d "{\"tag_name\":\"$TAG\",\"name\":\"$TAG\",\"body\":\"test\",\"prerelease\":false}" \
+                 -u "${TOKEN}:")
+          upload_url=$(echo "$resp" | jq -r '.upload_url' | sed 's/{.*}//')
+
+          # 2. 上传附件
+          curl -s -X POST "${upload_url}?name=${FILE_NAME}" \
+               -H "Content-Type: application/octet-stream" \
+               -u "${TOKEN}:" \
+               --data-binary @"${FILE_NAME}"
+
+          echo "✅ 测试成功！直链："
+          echo "https://gitee.com/${GITEE_REPO}/releases/download/${TAG}/${FILE_NAME}"
