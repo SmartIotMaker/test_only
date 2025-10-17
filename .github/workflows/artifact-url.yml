@@ -25,28 +25,48 @@ jobs:
           path: ${{ env.FILE_NAME }}
           retention-days: 1        # 1 小时后自动删除
 
-      - name: 生成免登录直链（带重试）
+      - name: 调试-获取真实直链
         id: link
         run: |
+          set -x          # 打开调试，逐行打印
           FILE="${FILE_NAME}"
-          # 最多等 20 秒入库
-          for i in {1..10}; do
-            ART_LIST=$(curl -s -H "Authorization: token ${GITHUB_TOKEN}" \
+          TOKEN="${GITHUB_TOKEN}"
+
+          # 1. 等 Artifact 入库（最多 30 秒）
+          for i in {1..15}; do
+            echo "[$i] 查询 Artifact..."
+            RESP=$(curl -s -H "Authorization: token ${TOKEN}" \
               https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts)
-            ARTIFACT_ID=$(echo "$ART_LIST" | jq -r --arg name "$FILE" '.artifacts[] | select(.name==$name) | .id')
-            [[ -n "$ARTIFACT_ID" ]] && break || sleep 2
+            ARTIFACT_ID=$(echo "$RESP" | jq -r --arg name "$FILE" '.artifacts[]? | select(.name==$name) | .id')
+            if [[ -n "$ARTIFACT_ID" ]]; then
+              echo "Artifact ID=$ARTIFACT_ID"
+              break
+            fi
+            sleep 2
           done
 
-          [[ -z "$ARTIFACT_ID" ]] && { echo "❌ 未找到 Artifact"; exit 1; }
+          if [[ -z "$ARTIFACT_ID" ]]; then
+            echo "❌ 未找到 Artifact，原始响应："
+            echo "$RESP" | jq .
+            exit 1
+          fi
 
-          # 拿真实下载地址（跟踪 302）
-          REAL_URL=$(curl -s -I -L -H "Authorization: token ${GITHUB_TOKEN}" \
-            https://api.github.com/repos/${{ github.repository }}/actions/artifacts/${ARTIFACT_ID}/archive |
-            grep -i "^location" | tail -1 | tr -d '\r' | cut -d' ' -f2)
+          # 2. 请求下载地址（带跟踪）
+          DOWN_API="https://api.github.com/repos/${{ github.repository }}/actions/artifacts/${ARTIFACT_ID}/archive"
+          echo "请求下载 API：$DOWN_API"
 
-          [[ -z "$REAL_URL" ]] && { echo "❌ 未获取到直链"; exit 1; }
+          HEADERS=$(curl -s -I -L -H "Authorization: token ${TOKEN}" "$DOWN_API")
+          echo "---- 完整响应头 ----"
+          echo "$HEADERS"
 
-          echo "---- 免登录直链（1 小时有效） ----"
+          # 3. 提取 Location
+          REAL_URL=$(echo "$HEADERS" | grep -i "^location" | tail -1 | awk '{print $2}' | tr -d '\r')
+          if [[ -z "$REAL_URL" ]]; then
+            echo "❌ 未提取到 Location，请检查响应头"
+            exit 1
+          fi
+
+          echo "---- 免登录直链 ----"
           echo "$REAL_URL"
           echo "url=$REAL_URL" >> $GITHUB_OUTPUT
         env:
