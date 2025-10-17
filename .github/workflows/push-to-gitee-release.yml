@@ -21,28 +21,26 @@ jobs:
             -o ${{ env.FILE_NAME }}
 
       - name: 创建 Gitee Release 并上传文件
+        env:                          # 把令牌提前注入环境变量，避免引号转义
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
         run: |
-          SIZE=$(stat -c%s "${{ env.FILE_NAME }}")
+          set -e
+          SIZE=$(stat -c%s "${FILE_NAME}")
           TAG="v$(date +%Y%m%d%H%M%S)"
-          API="https://gitee.com/api/v5/repos/${{ env.GITEE_REPO }}/releases"
+          API="https://gitee.com/api/v5/repos/${GITEE_REPO}/releases"
 
           # 1. 创建 release
           resp=$(curl -s -X POST "$API" \
-            -H "Content-Type: application/json" \
-            -d "{
-                  \"tag_name\": \"$TAG\",
-                  \"name\": \"$TAG\",
-                  \"body\": \"sync from GitHub Actions\",
-                  \"prerelease\": false
-                }" \
-            -u "${{ secrets.GITEE_TOKEN }}")          # ← 这里用令牌，别用星号
+                 -H "Content-Type: application/json" \
+                 -d "{\"tag_name\":\"$TAG\",\"name\":\"$TAG\",\"body\":\"sync from GitHub Actions\",\"prerelease\":false}" \
+                 -u "$GITEE_TOKEN:")
           upload_url=$(echo "$resp" | jq -r '.upload_url' | sed 's/{.*}//')
 
           # 2. 上传附件
-          curl -s -X POST "${upload_url}?name=${{ env.FILE_NAME }}" \
-            -H "Content-Type: application/octet-stream" \
-            -u "${{ secrets.GITEE_TOKEN }}" \
-            --data-binary @"${{ env.FILE_NAME }}"
+          curl -s -X POST "${upload_url}?name=${FILE_NAME}" \
+               -H "Content-Type: application/octet-stream" \
+               -u "$GITEE_TOKEN:" \
+               --data-binary @"${FILE_NAME}"
 
       - name: 打印国内直链
         run: |
