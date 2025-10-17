@@ -1,0 +1,24 @@
+name: micro-down
+
+on:
+  workflow_dispatch:   # 只允许手动触发，防止误跑
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 安装 aria2
+        run: sudo apt-get update && sudo apt-get install -y aria2
+
+      - name: 下载文件
+        run: |
+          aria2c -x16 -s16 \
+            https://mirror.fcix.net/fedora-alt/iot/42/IoT/aarch64/images/Fedora-IoT-raw-42-20250724.1.aarch64.raw.xz \
+            -o Fedora-IoT-raw-42-20250724.1.aarch64.raw.xz
+
+      - name: 上传 Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Fedora-IoT-raw-42-20250724.1.aarch64.raw.xz
+          path: Fedora-IoT-raw-42-20250724.1.aarch64.raw.xz
+          retention-days: 1   # 1 天后自动删除，节省 GitHub 空间
